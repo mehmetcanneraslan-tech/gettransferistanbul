@@ -18,8 +18,8 @@ export function Hero() {
   return (
     <section id="hero" className="relative pt-32 pb-20">
       <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/images/vip-hero.jpg')] bg-cover bg-center brightness-110 saturate-110" />
-        <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-white/75 to-white/65 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-[url('/images/vip-hero.jpg')] bg-cover bg-center brightness-[1.05] saturate-110" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/15 to-white/10" />
       </div>
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(680px_circle_at_50%_-10%,rgba(56,189,248,0.2),transparent)]" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">

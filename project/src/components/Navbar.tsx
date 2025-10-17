@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, X, Plane, Phone, MessageCircle, Mail, Globe } from 'lucide-react';
+import { Menu, X, Phone, MessageCircle, Mail, Globe } from 'lucide-react';
 import { useI18n } from '../context/LanguageProvider';
 import { LangSwitch } from './LangSwitch';
 
@@ -89,13 +89,18 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => scrollTo('hero')}
-              className="flex items-center gap-2 text-xl font-semibold text-indigo-700 hover:text-indigo-800 transition-colors"
+              className="flex items-center gap-3 text-xl font-semibold text-indigo-700 hover:text-indigo-800 transition-colors"
             >
-              <span className="relative flex h-10 w-10 items-center justify-center">
-                <span className="absolute inset-0 rounded-full bg-gradient-to-br from-indigo-500 via-blue-500 to-amber-500 opacity-60 blur-md" />
-                <Plane className="relative w-5 h-5 text-white drop-shadow" />
+              <span className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white shadow-lg shadow-indigo-100/60 border border-indigo-100 overflow-hidden">
+                <img
+                  src="/images/viplogo.png"
+                  alt={t.footer.company}
+                  className="h-full w-full object-cover scale-110"
+                />
               </span>
-              <span className="tracking-tight">{t.footer.company}</span>
+              <span className="tracking-tight leading-tight text-left">
+                {t.footer.company}
+              </span>
             </button>
 
             <div className="hidden md:flex items-center gap-6">
