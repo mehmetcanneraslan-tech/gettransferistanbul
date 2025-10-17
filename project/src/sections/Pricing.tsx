@@ -1,61 +1,54 @@
+import { useMemo } from 'react';
 import { useI18n } from '../context/LanguageProvider';
 import { formatPrice } from '../lib/pricing';
 
-export function Pricing() {
-  const { t } = useI18n();
+const pricingData = [
+  { route: 'Istanbul Airport → Taksim', vehicle: 'Sedan', price: 45 },
+  { route: 'Istanbul Airport → Sultanahmet', vehicle: 'Minivan', price: 60 },
+  { route: 'Sabiha Airport → Kadıköy', vehicle: 'Sedan', price: 40 },
+  { route: 'Antalya Airport → Lara', vehicle: 'Minivan', price: 35 }
+];
 
-  const routes = [
-    { route: 'Istanbul Airport → Taksim', vehicle: t.form.sedan, price: 70 },
-    { route: 'Istanbul Airport → Sultanahmet', vehicle: t.form.sedan, price: 75 },
-    { route: 'Istanbul Airport → Besiktas', vehicle: t.form.minivan, price: 95 },
-    { route: 'Sabiha Airport → Kadikoy', vehicle: t.form.sedan, price: 65 },
-    { route: 'Sabiha Airport → Taksim', vehicle: t.form.minivan, price: 110 },
-    { route: 'Antalya Airport → Lara', vehicle: t.form.sedan, price: 45 }
-  ];
+export function Pricing() {
+  const { t, language } = useI18n();
+
+  const formattedData = useMemo(
+    () =>
+      pricingData.map((item) => ({
+        ...item,
+        priceLabel: formatPrice(item.price, language === 'tr' ? '₺' : '€')
+      })),
+    [language]
+  );
 
   return (
-    <section id="pricing" className="py-20">
+    <section id="pricing" className="py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <span className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-5 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 shadow-md shadow-sky-200/60">
-            {t.nav.pricing}
-          </span>
-          <h2 className="mt-6 text-3xl sm:text-4xl font-bold text-slate-800">
+        <div className="text-center mb-12 space-y-4">
+          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-slate-900">
             {t.pricing.title}
           </h2>
-          <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
-            {t.pricing.note}
-          </p>
+          <p className="text-slate-600 max-w-3xl mx-auto">{t.pricing.note}</p>
         </div>
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {routes.map((item, index) => (
-            <div
-              key={index}
-              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60 transition-all hover:-translate-y-1 hover:shadow-2xl"
-            >
-              <div className="space-y-3">
-                <div>
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-[0.2em] mb-1">
-                    {t.pricing.route}
-                  </div>
-                  <div className="font-semibold text-slate-800">{item.route}</div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-[0.2em] mb-1">
-                    {t.pricing.vehicle}
-                  </div>
-                  <div className="text-sm text-slate-600">{item.vehicle}</div>
-                </div>
-                <div className="pt-4 border-t border-slate-200">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-sm text-slate-500">{t.pricing.from}</span>
-                    <span className="text-2xl font-bold text-sky-600">{formatPrice(item.price)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="overflow-hidden rounded-2xl border border-indigo-100 shadow-xl shadow-indigo-100/60 bg-white">
+          <table className="min-w-full divide-y divide-indigo-50">
+            <thead className="bg-indigo-50/60">
+              <tr className="text-left text-sm font-semibold text-indigo-700 uppercase tracking-[0.2em]">
+                <th className="px-6 py-4">{t.pricing.route}</th>
+                <th className="px-6 py-4">{t.pricing.vehicle}</th>
+                <th className="px-6 py-4">{t.pricing.price}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-indigo-50 text-sm md:text-base">
+              {formattedData.map((item) => (
+                <tr key={`${item.route}-${item.vehicle}`} className="hover:bg-indigo-50/50 transition-colors">
+                  <td className="px-6 py-4 font-medium text-slate-700">{item.route}</td>
+                  <td className="px-6 py-4 text-slate-500">{item.vehicle}</td>
+                  <td className="px-6 py-4 text-indigo-600 font-semibold">{item.priceLabel}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </section>

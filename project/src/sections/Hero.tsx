@@ -2,87 +2,65 @@ import { ArrowRight, MessageCircle } from 'lucide-react';
 import { useI18n } from '../context/LanguageProvider';
 import { Badge } from '../components/Badge';
 
+const whatsappEnv = import.meta.env.VITE_CONTACT_WHATSAPP ?? '+90 536 429 12 21';
+const whatsappLink = `https://wa.me/${whatsappEnv.replace(/[^\d+]/g, '')}`;
+
 export function Hero() {
   const { t } = useI18n();
 
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+  const scrollTo = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
     }
-  };
-
-  const handleWhatsApp = () => {
-    window.open('https://wa.me/905364291221', '_blank');
   };
 
   return (
     <section id="hero" className="relative pt-32 pb-20">
       <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/images/vip-hero.jpg')] bg-cover bg-center brightness-105 saturate-110 scale-105" />
-        <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/20 to-white/10" />
+        <div className="absolute inset-0 bg-[url('/images/vip-hero.jpg')] bg-cover bg-center brightness-110 saturate-110" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-white/75 to-white/65 backdrop-blur-[1px]" />
       </div>
-      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(680px_circle_at_50%_-10%,rgba(56,189,248,0.18),transparent)]" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(680px_circle_at_50%_-10%,rgba(56,189,248,0.2),transparent)]" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="text-center mb-12">
-          <p className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/70 px-6 py-2 text-sm font-semibold text-slate-600 shadow-lg shadow-sky-200/40 backdrop-blur">
+        <div className="text-center mb-12 space-y-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white/70 px-6 py-2 text-sm font-semibold text-slate-600 shadow-lg shadow-indigo-200/40 backdrop-blur">
             ✨ {t.footer.company}
-          </p>
-          <h1 className="mt-8 text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 drop-shadow">
+          </div>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-blue-600 to-amber-500 drop-shadow">
             {t.hero.title}
           </h1>
-          <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto">
+          <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto">
             {t.hero.subtitle}
           </p>
-
-          <div className="max-w-2xl mx-auto mt-10">
+          <div className="max-w-2xl mx-auto">
             <Badge />
           </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-10">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <button
-              onClick={() => scrollToSection('booking')}
-              className="group px-8 py-4 rounded-xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-600 text-white font-semibold shadow-lg shadow-sky-300/40 transition-all hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2"
+              type="button"
+              onClick={() => scrollTo('booking')}
+              className="group px-8 py-4 rounded-xl bg-gradient-to-r from-indigo-500 via-blue-500 to-amber-500 text-white font-semibold shadow-lg shadow-indigo-300/40 transition-all hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2"
             >
               {t.hero.bookNow}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
-
-            <button
-              onClick={handleWhatsApp}
+            <a
+              href={whatsappLink}
+              target="_blank"
+              rel="noreferrer"
               className="group px-8 py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold shadow-lg shadow-emerald-300/40 transition-all hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2"
             >
               <MessageCircle className="w-5 h-5" />
               {t.hero.whatsapp}
-            </button>
-
+            </a>
             <button
-              onClick={() => scrollToSection('pricing')}
+              type="button"
+              onClick={() => scrollTo('pricing')}
               className="px-8 py-4 rounded-xl border border-slate-200 bg-white/80 text-slate-600 font-semibold transition-all hover:bg-white hover:-translate-y-0.5 shadow-lg shadow-slate-200/60"
             >
               {t.hero.seePricing}
             </button>
-          </div>
-        </div>
-
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          <div className="p-6 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-200/60">
-            <div className="text-3xl font-semibold text-sky-600 mb-2">24/7</div>
-            <div className="text-sm text-slate-600">{t.whyUs.support}</div>
-          </div>
-          <div className="p-6 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-200/60">
-            <div className="text-3xl font-semibold text-sky-600 mb-2">100%</div>
-            <div className="text-sm text-slate-600">{t.whyUs.onTime}</div>
-          </div>
-          <div className="p-6 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-200/60">
-            <div className="text-3xl font-semibold text-sky-600 mb-2">5★</div>
-            <div className="text-sm text-slate-600">{t.whyUs.drivers}</div>
-          </div>
-          <div className="p-6 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-200/60">
-            <div className="text-3xl font-semibold text-sky-600 mb-2">
-              {t.pricing.from}
-            </div>
-            <div className="text-sm text-slate-600">{t.whyUs.fixedPrice}</div>
           </div>
         </div>
       </div>

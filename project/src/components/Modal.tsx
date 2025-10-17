@@ -1,74 +1,46 @@
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode } from 'react';
 import { X } from 'lucide-react';
 
-interface ModalProps {
-  isOpen: boolean;
+type ModalProps = {
+  open: boolean;
   onClose: () => void;
   title: string;
-  children: ReactNode;
-}
+  description?: string;
+  actions?: ReactNode;
+  children?: ReactNode;
+};
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  const previousFocus = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      previousFocus.current = document.activeElement as HTMLElement;
-      modalRef.current?.focus();
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-      previousFocus.current?.focus();
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
+export function Modal({ open, onClose, title, description, actions, children }: ModalProps) {
+  if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-xl"
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modal-title"
     >
       <div
-        ref={modalRef}
-        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white/95 text-slate-700 shadow-2xl shadow-slate-300/60"
-        onClick={(e) => e.stopPropagation()}
-        tabIndex={-1}
-      >
-        <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-          <h2 id="modal-title" className="text-2xl font-bold text-slate-800">
-            {title}
-          </h2>
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="relative max-w-lg w-full rounded-3xl bg-white shadow-2xl shadow-indigo-200/60 border border-indigo-100 p-6 md:p-8 space-y-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2">
+            <h3 className="text-2xl font-semibold text-slate-900">{title}</h3>
+            {description && <p className="text-slate-600">{description}</p>}
+          </div>
           <button
+            type="button"
+            className="rounded-full bg-indigo-50 text-indigo-600 p-2 hover:bg-indigo-100 transition-colors"
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100"
-            aria-label="Close modal"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6">
-          {children}
-        </div>
+        {children && <div className="space-y-3 text-slate-700">{children}</div>}
+        {actions && <div className="flex flex-wrap gap-3 justify-end">{actions}</div>}
       </div>
     </div>
   );

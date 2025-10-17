@@ -14,12 +14,14 @@ export const languages: Record<Language, { name: string; flag: string }> = {
   it: { name: 'Italiano', flag: '🇮🇹' }
 };
 
-export const translations = {
+export const translations: Record<Language, typeof tr> = {
   tr,
   en,
   de,
   fr,
   it
 };
+
+export const defaultLanguage: Language = 'tr';
 
 export type TranslationKeys = typeof tr;

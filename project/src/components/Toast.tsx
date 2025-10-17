@@ -1,43 +1,54 @@
-import { useEffect } from 'react';
-import { CheckCircle, XCircle, AlertTriangle, X } from 'lucide-react';
+import { ReactNode, useEffect } from 'react';
+import { X } from 'lucide-react';
 
-interface ToastProps {
-  type: 'success' | 'error' | 'warning';
+type ToastVariant = 'success' | 'error' | 'warning';
+
+type ToastProps = {
+  open: boolean;
+  variant: ToastVariant;
   message: string;
   onClose: () => void;
+  icon?: ReactNode;
   duration?: number;
-}
+};
 
-export function Toast({ type, message, onClose, duration = 5000 }: ToastProps) {
+const variantStyles: Record<ToastVariant, string> = {
+  success: 'bg-emerald-500 text-white',
+  error: 'bg-rose-500 text-white',
+  warning: 'bg-amber-500 text-white'
+};
+
+export function Toast({
+  open,
+  variant,
+  message,
+  onClose,
+  icon,
+  duration = 4000
+}: ToastProps) {
   useEffect(() => {
-    const timer = setTimeout(onClose, duration);
-    return () => clearTimeout(timer);
-  }, [duration, onClose]);
+    if (!open) return;
+    const timer = window.setTimeout(onClose, duration);
+    return () => window.clearTimeout(timer);
+  }, [open, onClose, duration]);
 
-  const icons = {
-    success: <CheckCircle className="w-5 h-5 text-emerald-500" />,
-    error: <XCircle className="w-5 h-5 text-rose-500" />,
-    warning: <AlertTriangle className="w-5 h-5 text-amber-500" />
-  };
-
-  const styles = {
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    error: 'border-rose-200 bg-rose-50 text-rose-700',
-    warning: 'border-amber-200 bg-amber-50 text-amber-700'
-  };
+  if (!open) return null;
 
   return (
-    <div
-      className={`fixed bottom-4 right-4 z-50 max-w-md w-full mx-4 sm:mx-0 border border-l-4 rounded-xl shadow-xl shadow-slate-200/60 p-4 bg-white/90 backdrop-blur ${styles[type]} animate-slide-in`}
-      role="alert"
-    >
-      <div className="flex items-start gap-3">
-        {icons[type]}
-        <p className="flex-1 text-sm font-medium">{message}</p>
+    <div className="fixed top-6 right-6 z-50">
+      <div
+        className={[
+          'flex items-center gap-3 rounded-2xl px-4 py-3 shadow-xl shadow-slate-900/20',
+          variantStyles[variant]
+        ].join(' ')}
+      >
+        {icon}
+        <span className="font-semibold">{message}</span>
         <button
+          type="button"
+          className="ml-2 rounded-full bg-white/20 p-1 hover:bg-white/30 transition-colors"
           onClick={onClose}
-          className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100"
-          aria-label="Close notification"
+          aria-label="Dismiss"
         >
           <X className="w-4 h-4" />
         </button>

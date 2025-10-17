@@ -1,129 +1,125 @@
-import { useState, FormEvent, ChangeEvent } from 'react';
-import { Calendar, Clock, Users, Luggage, Car, User, Phone, Mail, FileText } from 'lucide-react';
+import { FormEvent, useMemo, useState } from 'react';
+import { Calendar, Clock, Users, Luggage, Car, Loader2 } from 'lucide-react';
 import { useI18n } from '../context/LanguageProvider';
-import { Badge } from '../components/Badge';
-import { Modal } from '../components/Modal';
+import { getEstimate } from '../lib/pricing';
+import {
+  submitReservation,
+  generateWhatsAppLink,
+  type BookingData
+} from '../lib/submit';
 import { Toast } from '../components/Toast';
-import { getEstimate, formatPrice } from '../lib/pricing';
-import { submitReservation, generateWhatsAppLink, BookingData } from '../lib/submit';
+import { Modal } from '../components/Modal';
 
-interface FormData {
-  tripType: 'oneWay' | 'round';
-  pickup: string;
-  dropoff: string;
-  date: string;
-  time: string;
-  returnDate: string;
-  returnTime: string;
-  passengers: string;
-  luggage: string;
-  flightNo: string;
-  vehicle: 'sedan' | 'minivan' | 'minibus';
-  name: string;
-  phone: string;
-  email: string;
-  notes: string;
-  gdprAccepted: boolean;
-}
+type TripType = 'oneWay' | 'round';
+type VehicleType = 'sedan' | 'minivan' | 'minibus';
 
-interface FormErrors {
-  [key: string]: string;
-}
+const initialForm = {
+  tripType: 'oneWay' as TripType,
+  pickup: '',
+  dropoff: '',
+  date: '',
+  time: '',
+  returnDate: '',
+  returnTime: '',
+  passengers: '1',
+  luggage: '1',
+  flightNo: '',
+  vehicle: 'sedan' as VehicleType,
+  name: '',
+  phone: '',
+  email: '',
+  notes: '',
+  gdprAccepted: false
+};
+
+type FormData = typeof initialForm;
 
 export function ReservationForm() {
   const { t, language } = useI18n();
-  const [formData, setFormData] = useState<FormData>({
-    tripType: 'oneWay',
-    pickup: '',
-    dropoff: '',
-    date: '',
-    time: '',
-    returnDate: '',
-    returnTime: '',
-    passengers: '1',
-    luggage: '1',
-    flightNo: '',
-    vehicle: 'sedan',
-    name: '',
-    phone: '',
-    email: '',
-    notes: '',
-    gdprAccepted: false
+  const [formData, setFormData] = useState<FormData>(initialForm);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ open: boolean; message: string; variant: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    variant: 'success'
   });
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [submittedData, setSubmittedData] = useState<BookingData | null>(null);
 
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const inputBase =
-    'w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/90 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-colors hover:border-slate-300';
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
-
-    setFormData(prev => ({ ...prev, [name]: newValue }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+  const estimate = useMemo(() => {
+    if (!formData.pickup || !formData.dropoff || !formData.date || !formData.time) {
+      return 0;
     }
+    return getEstimate({
+      pickup: formData.pickup,
+      dropoff: formData.dropoff,
+      vehicle: formData.vehicle,
+      date: formData.date,
+      time: formData.time,
+      isRoundTrip: formData.tripType === 'round'
+    });
+  }, [
+    formData.pickup,
+    formData.dropoff,
+    formData.vehicle,
+    formData.date,
+    formData.time,
+    formData.tripType
+  ]);
 
-    if (['pickup', 'dropoff', 'date', 'time', 'vehicle', 'tripType'].includes(name)) {
-      setTimeout(() => calculateEstimate({ ...formData, [name]: newValue }), 100);
-    }
+  const handleChange = (field: keyof FormData, value: string | boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value
+    }));
+    setErrors((prev) => ({
+      ...prev,
+      [field]: ''
+    }));
   };
 
-  const calculateEstimate = (data: FormData) => {
-    if (data.pickup && data.dropoff && data.date && data.time) {
-      const price = getEstimate({
-        pickup: data.pickup,
-        dropoff: data.dropoff,
-        vehicle: data.vehicle,
-        date: data.date,
-        time: data.time,
-        isRoundTrip: data.tripType === 'round'
-      });
-      setEstimatedPrice(price);
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+
+    const requiredFields: Array<keyof FormData> = [
+      'pickup',
+      'dropoff',
+      'date',
+      'time',
+      'name',
+      'phone'
+    ];
+
+    requiredFields.forEach((field) => {
+      if (!formData[field]) {
+        newErrors[field] = t.form.required;
+      }
+    });
+
+    if (formData.tripType === 'round') {
+      if (!formData.returnDate) newErrors.returnDate = t.form.required;
+      if (!formData.returnTime) newErrors.returnTime = t.form.required;
     }
-  };
 
-  const validatePhone = (phone: string): boolean => {
-    const phoneRegex = /^\+?[1-9]\d{6,14}$/;
-    return phoneRegex.test(phone.replace(/\s/g, ''));
-  };
+    if (!formData.gdprAccepted) {
+      newErrors.gdprAccepted = t.form.acceptGdpr;
+    }
 
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
-
-    if (!formData.pickup.trim()) newErrors.pickup = t.form.required;
-    if (!formData.dropoff.trim()) newErrors.dropoff = t.form.required;
-    if (!formData.date) newErrors.date = t.form.required;
-    if (!formData.time) newErrors.time = t.form.required;
-    if (formData.tripType === 'round' && !formData.returnDate) newErrors.returnDate = t.form.required;
-    if (formData.tripType === 'round' && !formData.returnTime) newErrors.returnTime = t.form.required;
-    if (!formData.name.trim()) newErrors.name = t.form.required;
-    if (!formData.phone.trim()) {
-      newErrors.phone = t.form.required;
-    } else if (!validatePhone(formData.phone)) {
+    if (formData.phone && !/^\+?[0-9\s-]{7,15}$/.test(formData.phone)) {
       newErrors.phone = t.form.invalidPhone;
     }
-    if (!formData.gdprAccepted) newErrors.gdprAccepted = t.form.acceptGdpr;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!validate()) return;
 
-    if (!validateForm()) {
-      setToast({ type: 'error', message: t.toast.error });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    const bookingData: BookingData = {
+    setSubmitting(true);
+    const payload: BookingData = {
       tripType: formData.tripType,
       pickup: formData.pickup,
       dropoff: formData.dropoff,
@@ -131,459 +127,403 @@ export function ReservationForm() {
       time: formData.time,
       returnDate: formData.tripType === 'round' ? formData.returnDate : undefined,
       returnTime: formData.tripType === 'round' ? formData.returnTime : undefined,
-      passengers: parseInt(formData.passengers),
-      luggage: parseInt(formData.luggage),
+      passengers: parseInt(formData.passengers, 10),
+      luggage: parseInt(formData.luggage, 10),
       flightNo: formData.flightNo || undefined,
       vehicle: formData.vehicle,
       name: formData.name,
       phone: formData.phone,
       email: formData.email || undefined,
       notes: formData.notes || undefined,
-      estimatedPrice: estimatedPrice || 0
+      estimatedPrice: estimate
     };
 
     try {
-      const result = await submitReservation(bookingData);
+      const result = await submitReservation(payload);
       if (result.success) {
-        setIsModalOpen(true);
-        setToast({ type: 'success', message: t.toast.success });
+        setSubmittedData(payload);
+        setIsConfirmOpen(true);
+        setToast({ open: true, message: t.toast.success, variant: 'success' });
+        setFormData(initialForm);
+      } else {
+        setToast({ open: true, message: result.message ?? t.toast.error, variant: 'error' });
       }
-    } catch {
-      setToast({ type: 'error', message: t.toast.error });
+    } catch (error) {
+      console.error(error);
+      setToast({ open: true, message: t.toast.error, variant: 'error' });
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
-  const getTodayDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
-
-  const bookingData: BookingData = {
-    tripType: formData.tripType,
-    pickup: formData.pickup,
-    dropoff: formData.dropoff,
-    date: formData.date,
-    time: formData.time,
-    returnDate: formData.tripType === 'round' ? formData.returnDate : undefined,
-    returnTime: formData.tripType === 'round' ? formData.returnTime : undefined,
-    passengers: parseInt(formData.passengers),
-    luggage: parseInt(formData.luggage),
-    flightNo: formData.flightNo || undefined,
-    vehicle: formData.vehicle,
-    name: formData.name,
-    phone: formData.phone,
-    email: formData.email || undefined,
-    notes: formData.notes || undefined,
-    estimatedPrice: estimatedPrice || 0
-  };
-
   return (
-    <section id="booking" className="relative py-20">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(520px_circle_at_20%_10%,rgba(129,140,248,0.18),transparent)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(640px_circle_at_80%_0%,rgba(45,212,191,0.14),transparent)]" />
-      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-4">
+    <section id="booking" className="py-16">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12 space-y-3">
+          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-slate-900">
             {t.form.title}
           </h2>
-          <Badge />
+          <p className="text-slate-600">{t.form.paymentNotice}</p>
         </div>
-
-        <form onSubmit={handleSubmit} className="bg-white/80 border border-slate-200 rounded-2xl shadow-2xl shadow-slate-200/60 p-6 sm:p-8 space-y-6 backdrop-blur">
-          <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-3">
-              {t.form.tripType}
-            </label>
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white/80 border border-indigo-100 rounded-3xl shadow-2xl shadow-indigo-100/70 p-6 sm:p-10 space-y-8 backdrop-blur"
+        >
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-3">
+              <label className="text-sm font-semibold text-slate-600">{t.form.tripType}</label>
+              <div className="grid grid-cols-2 gap-3">
+                {(['oneWay', 'round'] as TripType[]).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleChange('tripType', type)}
+                    className={[
+                      'p-4 rounded-2xl border-2 font-semibold transition-all shadow-sm',
+                      formData.tripType === type
+                        ? 'border-indigo-400 bg-indigo-50 text-indigo-700 shadow-indigo-100/70'
+                        : 'border-slate-200 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50'
+                    ].join(' ')}
+                  >
+                    {t.form[type]}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, tripType: 'oneWay' }))}
-                className={`p-4 rounded-xl border-2 font-semibold transition-all ${
-                  formData.tripType === 'oneWay'
-                    ? 'border-sky-400 bg-sky-50 text-sky-700 shadow-md shadow-sky-200/60'
-                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                }`}
-              >
-                {t.form.oneWay}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, tripType: 'round' }))}
-                className={`p-4 rounded-xl border-2 font-semibold transition-all ${
-                  formData.tripType === 'round'
-                    ? 'border-sky-400 bg-sky-50 text-sky-700 shadow-md shadow-sky-200/60'
-                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                }`}
-              >
-                {t.form.round}
-              </button>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-600">{t.form.vehicle}</label>
+                <select
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  value={formData.vehicle}
+                  onChange={(event) => handleChange('vehicle', event.target.value)}
+                >
+                  <option value="sedan">{t.form.sedan}</option>
+                  <option value="minivan">{t.form.minivan}</option>
+                  <option value="minibus">{t.form.minibus}</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-600">{t.form.estimate}</label>
+                <div className="h-full flex items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-700 font-semibold text-xl">
+                  {estimate > 0 ? `${estimate} €` : '—'}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="pickup" className="block text-sm font-semibold text-slate-600 mb-2">
-                {t.form.pickup} *
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-600" htmlFor="pickup">
+                {t.form.pickup}
               </label>
               <input
-                type="text"
                 id="pickup"
-                name="pickup"
+                type="text"
                 value={formData.pickup}
-                onChange={handleChange}
-                className={`${inputBase} ${
-                  errors.pickup ? 'border-rose-400 focus:ring-rose-400 focus:border-rose-400' : ''
-                }`}
-                placeholder="Istanbul Airport"
+                onChange={(event) => handleChange('pickup', event.target.value)}
+                className={`w-full px-4 py-3 rounded-xl border ${
+                  errors.pickup ? 'border-rose-400' : 'border-slate-200'
+                } bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400`}
+                placeholder="İstanbul Havalimanı"
               />
-              {errors.pickup && <p className="mt-1 text-sm text-rose-500">{errors.pickup}</p>}
+              {errors.pickup && <p className="text-sm text-rose-500">{errors.pickup}</p>}
             </div>
 
-            <div>
-              <label htmlFor="dropoff" className="block text-sm font-semibold text-slate-600 mb-2">
-                {t.form.dropoff} *
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-600" htmlFor="dropoff">
+                {t.form.dropoff}
               </label>
               <input
-                type="text"
                 id="dropoff"
-                name="dropoff"
+                type="text"
                 value={formData.dropoff}
-                onChange={handleChange}
-                className={`${inputBase} ${
-                  errors.dropoff ? 'border-rose-400 focus:ring-rose-400 focus:border-rose-400' : ''
-                }`}
+                onChange={(event) => handleChange('dropoff', event.target.value)}
+                className={`w-full px-4 py-3 rounded-xl border ${
+                  errors.dropoff ? 'border-rose-400' : 'border-slate-200'
+                } bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400`}
                 placeholder="Taksim"
               />
-              {errors.dropoff && <p className="mt-1 text-sm text-rose-500">{errors.dropoff}</p>}
+              {errors.dropoff && <p className="text-sm text-rose-500">{errors.dropoff}</p>}
             </div>
-          </div>
 
-          <div className="grid sm:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="date" className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-2">
-                <Calendar className="w-4 h-4" />
-                {t.form.date} *
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-600" htmlFor="date">
+                {t.form.date}
               </label>
-              <input
-                type="date"
-                id="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                min={getTodayDate()}
-                className={`${inputBase} ${
-                  errors.date ? 'border-rose-400 focus:ring-rose-400 focus:border-rose-400' : ''
-                }`}
-              />
-              {errors.date && <p className="mt-1 text-sm text-rose-500">{errors.date}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="time" className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-2">
-                <Clock className="w-4 h-4" />
-                {t.form.time} *
-              </label>
-              <input
-                type="time"
-                id="time"
-                name="time"
-                value={formData.time}
-                onChange={handleChange}
-                className={`${inputBase} ${
-                  errors.time ? 'border-rose-400 focus:ring-rose-400 focus:border-rose-400' : ''
-                }`}
-              />
-              {errors.time && <p className="mt-1 text-sm text-rose-500">{errors.time}</p>}
-            </div>
-          </div>
-
-          {formData.tripType === 'round' && (
-            <div className="grid sm:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="returnDate" className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-2">
-                  <Calendar className="w-4 h-4" />
-                  {t.form.returnDate} *
-                </label>
+              <div className="relative">
+                <Calendar className="w-4 h-4 text-indigo-500 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
+                  id="date"
                   type="date"
-                  id="returnDate"
-                  name="returnDate"
-                  value={formData.returnDate}
-                  onChange={handleChange}
-                  min={formData.date || getTodayDate()}
-                  className={`${inputBase} ${
-                    errors.returnDate ? 'border-rose-400 focus:ring-rose-400 focus:border-rose-400' : ''
-                  }`}
+                  value={formData.date}
+                  onChange={(event) => handleChange('date', event.target.value)}
+                  className={`w-full pl-12 pr-4 py-3 rounded-xl border ${
+                    errors.date ? 'border-rose-400' : 'border-slate-200'
+                  } bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400`}
                 />
-                {errors.returnDate && <p className="mt-1 text-sm text-rose-500">{errors.returnDate}</p>}
               </div>
+              {errors.date && <p className="text-sm text-rose-500">{errors.date}</p>}
+            </div>
 
-              <div>
-                <label htmlFor="returnTime" className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-2">
-                  <Clock className="w-4 h-4" />
-                  {t.form.returnTime} *
-                </label>
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-600" htmlFor="time">
+                {t.form.time}
+              </label>
+              <div className="relative">
+                <Clock className="w-4 h-4 text-indigo-500 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
+                  id="time"
                   type="time"
-                  id="returnTime"
-                  name="returnTime"
-                  value={formData.returnTime}
-                  onChange={handleChange}
-                  className={`${inputBase} ${
-                    errors.returnTime ? 'border-rose-400 focus:ring-rose-400 focus:border-rose-400' : ''
-                  }`}
+                  value={formData.time}
+                  onChange={(event) => handleChange('time', event.target.value)}
+                  className={`w-full pl-12 pr-4 py-3 rounded-xl border ${
+                    errors.time ? 'border-rose-400' : 'border-slate-200'
+                  } bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400`}
                 />
-                {errors.returnTime && <p className="mt-1 text-sm text-rose-500">{errors.returnTime}</p>}
+              </div>
+              {errors.time && <p className="text-sm text-rose-500">{errors.time}</p>}
+            </div>
+
+            {formData.tripType === 'round' && (
+              <>
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-600" htmlFor="returnDate">
+                    {t.form.returnDate}
+                  </label>
+                  <div className="relative">
+                    <Calendar className="w-4 h-4 text-indigo-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input
+                      id="returnDate"
+                      type="date"
+                      value={formData.returnDate}
+                      onChange={(event) => handleChange('returnDate', event.target.value)}
+                      className={`w-full pl-12 pr-4 py-3 rounded-xl border ${
+                        errors.returnDate ? 'border-rose-400' : 'border-slate-200'
+                      } bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400`}
+                    />
+                  </div>
+                  {errors.returnDate && <p className="text-sm text-rose-500">{errors.returnDate}</p>}
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-600" htmlFor="returnTime">
+                    {t.form.returnTime}
+                  </label>
+                  <div className="relative">
+                    <Clock className="w-4 h-4 text-indigo-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input
+                      id="returnTime"
+                      type="time"
+                      value={formData.returnTime}
+                      onChange={(event) => handleChange('returnTime', event.target.value)}
+                      className={`w-full pl-12 pr-4 py-3 rounded-xl border ${
+                        errors.returnTime ? 'border-rose-400' : 'border-slate-200'
+                      } bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400`}
+                    />
+                  </div>
+                  {errors.returnTime && <p className="text-sm text-rose-500">{errors.returnTime}</p>}
+                </div>
+              </>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-600" htmlFor="passengers">
+                  {t.form.pax}
+                </label>
+                <div className="relative">
+                  <Users className="w-4 h-4 text-indigo-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    id="passengers"
+                    type="number"
+                    min={1}
+                    value={formData.passengers}
+                    onChange={(event) => handleChange('passengers', event.target.value)}
+                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-600" htmlFor="luggage">
+                  {t.form.luggage}
+                </label>
+                <div className="relative">
+                  <Luggage className="w-4 h-4 text-indigo-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    id="luggage"
+                    type="number"
+                    min={0}
+                    value={formData.luggage}
+                    onChange={(event) => handleChange('luggage', event.target.value)}
+                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                </div>
               </div>
             </div>
-          )}
 
-          <div className="grid sm:grid-cols-3 gap-6">
-            <div>
-              <label htmlFor="passengers" className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-2">
-                <Users className="w-4 h-4" />
-                {t.form.pax}
-              </label>
-              <input
-                type="number"
-                id="passengers"
-                name="passengers"
-                value={formData.passengers}
-                onChange={handleChange}
-                min="1"
-                max="14"
-                className={inputBase}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="luggage" className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-2">
-                <Luggage className="w-4 h-4" />
-                {t.form.luggage}
-              </label>
-              <input
-                type="number"
-                id="luggage"
-                name="luggage"
-                value={formData.luggage}
-                onChange={handleChange}
-                min="0"
-                max="20"
-                className={inputBase}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="flightNo" className="block text-sm font-semibold text-slate-600 mb-2">
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-600" htmlFor="flightNo">
                 {t.form.flightNo}
               </label>
-              <input
-                type="text"
-                id="flightNo"
-                name="flightNo"
-                value={formData.flightNo}
-                onChange={handleChange}
-                className={inputBase}
-               placeholder="TK1234"
-              />
+              <div className="relative">
+                <Car className="w-4 h-4 text-indigo-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  id="flightNo"
+                  type="text"
+                  value={formData.flightNo}
+                  onChange={(event) => handleChange('flightNo', event.target.value)}
+                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-3">
-              <Car className="w-4 h-4" />
-              {t.form.vehicle}
-            </label>
-            <div className="grid sm:grid-cols-3 gap-4">
-              {(['sedan', 'minivan', 'minibus'] as const).map((vehicleType) => (
-                <button
-                  key={vehicleType}
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, vehicle: vehicleType }))}
-                  className={`p-4 rounded-xl border-2 font-semibold transition-all ${
-                    formData.vehicle === vehicleType
-                      ? 'border-sky-400 bg-sky-50 text-sky-700 shadow-md shadow-sky-200/60'
-                      : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-                >
-                  {t.form[vehicleType]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="name" className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-2">
-                <User className="w-4 h-4" />
-                {t.form.name} *
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-600" htmlFor="name">
+                {t.form.name}
               </label>
               <input
-                type="text"
                 id="name"
-                name="name"
+                type="text"
                 value={formData.name}
-                onChange={handleChange}
-                className={`${inputBase} ${
-                  errors.name ? 'border-rose-400 focus:ring-rose-400 focus:border-rose-400' : ''
-                }`}
+                onChange={(event) => handleChange('name', event.target.value)}
+                className={`w-full px-4 py-3 rounded-xl border ${
+                  errors.name ? 'border-rose-400' : 'border-slate-200'
+                } bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400`}
               />
-              {errors.name && <p className="mt-1 text-sm text-rose-500">{errors.name}</p>}
+              {errors.name && <p className="text-sm text-rose-500">{errors.name}</p>}
             </div>
 
-            <div>
-              <label htmlFor="phone" className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-2">
-                <Phone className="w-4 h-4" />
-                {t.form.phone} *
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-600" htmlFor="phone">
+                {t.form.phone}
               </label>
               <input
-                type="tel"
                 id="phone"
-                name="phone"
+                type="tel"
                 value={formData.phone}
-                onChange={handleChange}
-                className={`${inputBase} ${
-                  errors.phone ? 'border-rose-400 focus:ring-rose-400 focus:border-rose-400' : ''
-                }`}
-                placeholder="+90 555 123 4567"
+                onChange={(event) => handleChange('phone', event.target.value)}
+                className={`w-full px-4 py-3 rounded-xl border ${
+                  errors.phone ? 'border-rose-400' : 'border-slate-200'
+                } bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400`}
               />
-              {errors.phone && <p className="mt-1 text-sm text-rose-500">{errors.phone}</p>}
+              {errors.phone && <p className="text-sm text-rose-500">{errors.phone}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-600" htmlFor="email">
+                {t.form.email}
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(event) => handleChange('email', event.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+
+            <div className="md:col-span-2 space-y-2">
+              <label className="block text-sm font-semibold text-slate-600" htmlFor="notes">
+                {t.form.notes}
+              </label>
+              <textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(event) => handleChange('notes', event.target.value)}
+                rows={4}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/90 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
             </div>
           </div>
 
-          <div>
-            <label htmlFor="email" className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-2">
-              <Mail className="w-4 h-4" />
-              {t.form.email}
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className={inputBase}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="notes" className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-2">
-              <FileText className="w-4 h-4" />
-              {t.form.notes}
-            </label>
-            <textarea
-              id="notes"
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              rows={3}
-              className={`${inputBase} resize-none`}
-            />
-          </div>
-
-          <div>
-            <label className="flex items-start gap-3 cursor-pointer">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <label className="flex items-start gap-3 text-sm text-slate-600">
               <input
                 type="checkbox"
-                name="gdprAccepted"
                 checked={formData.gdprAccepted}
-                onChange={handleChange}
-                className="mt-1 w-4 h-4 rounded border-slate-300 bg-white text-sky-500 focus:ring-2 focus:ring-sky-400 focus:ring-offset-0 focus:outline-none"
+                onChange={(event) => handleChange('gdprAccepted', event.target.checked)}
+                className="mt-1 h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
-              <span className="text-sm text-slate-600 leading-relaxed">
-                {t.form.gdpr} *
+              <span>
+                {t.form.gdpr}
+                {errors.gdprAccepted && (
+                  <span className="block text-rose-500">{errors.gdprAccepted}</span>
+                )}
               </span>
             </label>
-            {errors.gdprAccepted && <p className="mt-1 text-sm text-rose-500">{errors.gdprAccepted}</p>}
-          </div>
-
-          {estimatedPrice && (
-            <div className="rounded-xl border border-sky-200 bg-sky-50 p-6 shadow-inner shadow-sky-100">
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-semibold text-slate-700">{t.form.estimate}</span>
-                <span className="text-3xl font-bold text-sky-600">{formatPrice(estimatedPrice)}</span>
-              </div>
-              <p className="mt-2 text-sm text-slate-600">{t.form.paymentNotice}</p>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full px-8 py-4 rounded-xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-600 text-white font-semibold shadow-lg shadow-sky-300/40 transition-all hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? '...' : t.form.submit}
-          </button>
-        </form>
-
-        <Modal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          title={t.confirm.title}
-        >
-          <div className="space-y-6">
-            <p className="text-slate-600">{t.confirm.text}</p>
-
-            <div className="rounded-xl border border-slate-200 bg-white/90 p-6 space-y-3 shadow-lg shadow-slate-200/60">
-              <h3 className="font-semibold text-slate-800 mb-4">{t.confirm.summary}</h3>
-              <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
-                <div className="text-slate-500">{t.form.tripType}:</div>
-                <div className="font-semibold text-slate-800">
-                  {formData.tripType === 'oneWay' ? t.form.oneWay : t.form.round}
-                </div>
-
-                <div className="text-slate-500">{t.form.pickup}:</div>
-                <div className="font-semibold text-slate-800">{formData.pickup}</div>
-
-                <div className="text-slate-500">{t.form.dropoff}:</div>
-                <div className="font-semibold text-slate-800">{formData.dropoff}</div>
-
-                <div className="text-slate-500">{t.form.date}:</div>
-                <div className="font-semibold text-slate-800">{formData.date} {formData.time}</div>
-
-                {formData.tripType === 'round' && (
-                  <>
-                    <div className="text-slate-500">{t.form.returnDate}:</div>
-                    <div className="font-semibold text-slate-800">{formData.returnDate} {formData.returnTime}</div>
-                  </>
-                )}
-
-                <div className="text-slate-500">{t.form.vehicle}:</div>
-                <div className="font-semibold text-slate-800">{t.form[formData.vehicle]}</div>
-
-                <div className="text-slate-500">{t.form.estimate}:</div>
-                <div className="text-lg font-bold text-sky-600">{formatPrice(estimatedPrice || 0)}</div>
-              </div>
-            </div>
-
-            <a
-              href={generateWhatsAppLink(bookingData, language)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 via-green-500 to-lime-500 text-white font-semibold shadow-lg shadow-emerald-300/40 transition-all hover:shadow-xl hover:-translate-y-0.5 text-center"
-            >
-              {t.confirm.whatsappButton}
-            </a>
-
             <button
-              onClick={() => setIsModalOpen(false)}
-              className="w-full px-6 py-3 rounded-xl border border-slate-200 bg-white/80 text-slate-700 font-semibold transition-all hover:bg-white"
+              type="submit"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-indigo-600 text-white px-8 py-3 font-semibold shadow-lg shadow-indigo-300/60 hover:bg-indigo-700 transition-all"
+              disabled={submitting}
             >
-              {t.confirm.close}
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {t.form.submit}
             </button>
           </div>
-        </Modal>
-
-        {toast && (
-          <Toast
-            type={toast.type}
-            message={toast.message}
-            onClose={() => setToast(null)}
-          />
-        )}
+        </form>
       </div>
+
+      <Toast
+        open={toast.open}
+        variant={toast.variant}
+        message={toast.message}
+        onClose={() => setToast((prev) => ({ ...prev, open: false }))}
+      />
+
+      <Modal
+        open={isConfirmOpen && !!submittedData}
+        onClose={() => setIsConfirmOpen(false)}
+        title={t.confirm.title}
+        description={t.confirm.text}
+        actions={
+          submittedData && (
+            <>
+              <a
+                href={generateWhatsAppLink(submittedData, language)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full bg-emerald-500 text-white px-5 py-2 font-semibold shadow-lg shadow-emerald-300/60 hover:bg-emerald-600 transition-colors"
+              >
+                {t.confirm.whatsappButton}
+              </a>
+              <button
+                type="button"
+                onClick={() => setIsConfirmOpen(false)}
+                className="inline-flex items-center gap-2 rounded-full bg-indigo-100 text-indigo-700 px-5 py-2 font-semibold hover:bg-indigo-200 transition-colors"
+              >
+                {t.confirm.close}
+              </button>
+            </>
+          )
+        }
+      >
+        {submittedData && (
+          <div className="space-y-2 text-sm">
+            <h4 className="text-base font-semibold text-slate-800">{t.confirm.summary}</h4>
+            <ul className="space-y-1 text-slate-600">
+              <li>
+                {submittedData.tripType === 'oneWay' ? t.form.oneWay : t.form.round} •{' '}
+                {submittedData.vehicle}
+              </li>
+              <li>
+                {submittedData.pickup} → {submittedData.dropoff}
+              </li>
+              <li>
+                {submittedData.date} {submittedData.time}
+                {submittedData.returnDate && submittedData.returnTime
+                  ? ` • ${submittedData.returnDate} ${submittedData.returnTime}`
+                  : ''}
+              </li>
+              <li>
+                {t.form.pax}: {submittedData.passengers} • {t.form.luggage}: {submittedData.luggage}
+              </li>
+              <li>
+                {t.form.estimate}: {submittedData.estimatedPrice} €
+              </li>
+            </ul>
+          </div>
+        )}
+      </Modal>
     </section>
   );
 }
