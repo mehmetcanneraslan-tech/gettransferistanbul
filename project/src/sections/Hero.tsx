@@ -16,17 +16,15 @@ export function Hero() {
   };
 
   return (
-    <section id="hero" className="relative pt-32 pb-20">
+    <section id="hero" className="relative pt-32 pb-20 min-h-screen flex items-center">
       <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/images/vip-hero.jpg')] bg-cover bg-center brightness-[1.05] saturate-110" />
-        <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/15 to-white/10" />
+        <div className="absolute inset-0 bg-[url('/images/vip-hero.jpg')] bg-cover bg-[center_30%] brightness-[1.1] saturate-[1.15] scale-105" 
+             style={{ imageRendering: '-webkit-optimize-contrast' }} />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/25 via-white/10 to-white/5" />
       </div>
-      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(680px_circle_at_50%_-10%,rgba(56,189,248,0.2),transparent)]" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(680px_circle_at_50%_-10%,rgba(56,189,248,0.15),transparent)]" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 mt-32">
         <div className="text-center mb-12 space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white/70 px-6 py-2 text-sm font-semibold text-slate-600 shadow-lg shadow-indigo-200/40 backdrop-blur">
-            ✨ {t.footer.company}
-          </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-blue-600 to-amber-500 drop-shadow">
             {t.hero.title}
           </h1>
@@ -36,7 +34,7 @@ export function Hero() {
           <div className="max-w-2xl mx-auto">
             <Badge />
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center flex-wrap">
             <button
               type="button"
               onClick={() => scrollTo('booking')}
@@ -61,6 +59,11 @@ export function Hero() {
             >
               {t.hero.seePricing}
             </button>
+            <div className="w-full sm:w-auto flex justify-center">
+              <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white/70 px-6 py-2 text-sm font-semibold text-slate-600 shadow-lg shadow-indigo-200/40 backdrop-blur">
+                ✨ {t.footer.company}
+              </div>
+            </div>
           </div>
         </div>
       </div>

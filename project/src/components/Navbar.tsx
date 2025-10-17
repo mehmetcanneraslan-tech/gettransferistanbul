@@ -117,6 +117,13 @@ export function Navbar() {
             </div>
 
             <div className="hidden md:flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => scrollTo('booking')}
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-blue-500 to-amber-500 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-300/40 hover:shadow-xl hover:-translate-y-0.5 transition-all"
+              >
+                {t.nav.book}
+              </button>
               <div className="relative">
                 <button
                   type="button"
